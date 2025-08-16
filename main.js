@@ -33,7 +33,7 @@ scene.add(dir2);
 const coin = new THREE.Group(); // we animate this group
 scene.add(coin);
 
-const baseScale = 2.0; // visible diameter (tweak smaller/bigger)
+const baseScale = 1.5; // visible diameter (tweak smaller/bigger)
 let ready = false;
 
 /* ---------- helpers ---------- */
