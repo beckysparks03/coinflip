@@ -15,7 +15,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   100
 );
-camera.position.set(0, 1, 3);
+camera.position.set(0, 0, 3);
 scene.add(camera);
 
 // Lights
@@ -42,6 +42,8 @@ const loader = new GLTFLoader();
 loader.load(
   './coin.glb',
   gltf => {
+    gltf.scene.scale.set(6, 6, 6);     // make ~6x bigger
+    gltf.scene.position.set(0, 0, 0);  // center in scene
     coin.add(gltf.scene);
     console.log('coin.glb loaded');
   },
@@ -49,12 +51,13 @@ loader.load(
   err => {
     console.warn('coin.glb not found, using placeholder');
     const placeholder = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.5, 0.5, 0.05, 64),
+      new THREE.CylinderGeometry(3, 3, 0.3, 64), // bigger placeholder
       new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.3 })
     );
     coin.add(placeholder);
   }
 );
+
 
 // Flip logic
 let flipping = false;
