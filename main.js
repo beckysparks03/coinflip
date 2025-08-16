@@ -18,14 +18,14 @@ camera.lookAt(0, 0, 0);
 scene.add(camera);
 
 /* ---------- lighting ---------- */
-scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 scene.add(new THREE.HemisphereLight(0xffffff, 0xeeeeee, 1.0));
 
-const dir1 = new THREE.DirectionalLight(0xffffff, 1.6);
+const dir1 = new THREE.DirectionalLight(0xffffff, 1.5);
 dir1.position.set(6, 6, 8);
 scene.add(dir1);
 
-const dir2 = new THREE.DirectionalLight(0xffffff, 1.2);
+const dir2 = new THREE.DirectionalLight(0xffffff, 1.0);
 dir2.position.set(-6, -6, 8);
 scene.add(dir2);
 
@@ -33,22 +33,10 @@ scene.add(dir2);
 const coin = new THREE.Group();
 scene.add(coin);
 
-const baseScale = 2.7;
+const baseScale = 2.0; // coin diameter
 let ready = false;
 
 /* ---------- helpers ---------- */
-function shinyMaterialize(root) {
-  root.traverse(o => {
-    if (o.isMesh) {
-      o.material = new THREE.MeshStandardMaterial({
-        color: 0xf2f2f2,
-        metalness: 0.95,
-        roughness: 0.2
-      });
-    }
-  });
-}
-
 function normalizeModel(root) {
   const wrapper = new THREE.Group();
   wrapper.add(root);
@@ -65,6 +53,9 @@ function normalizeModel(root) {
   const scaleFactor = baseScale / diameter;
   wrapper.scale.setScalar(scaleFactor);
 
+  console.log("Bounding box size:", size);
+  console.log("Bounding box center:", center);
+
   return wrapper;
 }
 
@@ -73,13 +64,13 @@ const loader = new GLTFLoader();
 loader.load(
   './coin.glb',
   (gltf) => {
-    shinyMaterialize(gltf.scene);
+    // ✅ don't overwrite materials — use coin’s own
     const normalized = normalizeModel(gltf.scene);
 
-    // Lay flat so face is visible
-    normalized.rotation.set(Math.PI / 2, 0, 0);
+    // 🔧 remove forced rotation for now
+    // normalized.rotation.set(Math.PI / 2, 0, 0);
 
-    // 🔑 Recenter again after rotation
+    // recenter again after normalization
     const box = new THREE.Box3().setFromObject(normalized);
     const center = new THREE.Vector3();
     box.getCenter(center);
@@ -87,30 +78,22 @@ loader.load(
 
     coin.add(normalized);
 
-    // Random side up (X axis controls heads/tails)
+    // random heads/tails
     const startHeads = Math.random() < 0.5;
     coin.rotation.set(startHeads ? Math.PI : 0, 0, 0);
 
     ready = true;
   },
   undefined,
-  () => {
-    // fallback placeholder if GLB fails
+  (err) => {
+    console.error("Failed to load GLB:", err);
+    // fallback cylinder
     const placeholder = new THREE.Mesh(
       new THREE.CylinderGeometry(baseScale / 2, baseScale / 2, 0.15, 96),
-      new THREE.MeshStandardMaterial({ color: 0xf2f2f2, metalness: 0.95, roughness: 0.2 })
+      new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.9, roughness: 0.3 })
     );
     placeholder.rotation.set(Math.PI / 2, 0, 0);
-
-    const box = new THREE.Box3().setFromObject(placeholder);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    placeholder.position.sub(center);
-
     coin.add(placeholder);
-
-    const startHeads = Math.random() < 0.5;
-    coin.rotation.set(startHeads ? Math.PI : 0, 0, 0);
     ready = true;
   }
 );
@@ -131,17 +114,16 @@ const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2
 function startFlip() {
   if (!ready || flipping) return;
 
-  // lock flat start
   coin.rotation.y = 0;
   coin.rotation.z = 0;
   coin.rotation.x = Math.round(coin.rotation.x / Math.PI) * Math.PI;
 
-  flips = Math.floor(4 + Math.random() * 4); // 4–7 flips
+  flips = Math.floor(4 + Math.random() * 4);
   height = 1.2 + Math.random() * 0.9;
   duration = 1.0 + Math.random() * 0.65;
   scaleBoostMax = 0.4 + Math.random() * 0.15;
 
-  const extra = Math.random() < 0.5 ? 0 : Math.PI; // heads/tails
+  const extra = Math.random() < 0.5 ? 0 : Math.PI;
 
   startX = coin.rotation.x;
   targetX = startX + flips * Math.PI * 2 + extra;
@@ -173,17 +155,12 @@ function animate() {
     const done = t >= 1;
     const e = easeInOutCubic(Math.min(t, 1));
 
-    // flip end over end (X axis)
     coin.rotation.x = THREE.MathUtils.lerp(startX, targetX, e);
-
-    // arc toward camera
     coin.position.z = Math.sin(Math.PI * e) * height;
 
-    // pop scale
     const scaleBoost = 1 + scaleBoostMax * Math.sin(Math.PI * e);
     coin.scale.set(scaleBoost, scaleBoost, scaleBoost);
 
-    // wobble in air only
     const wobble = 0.12 * Math.sin(Math.PI * e);
     const osc = Math.sin(e * Math.PI * 14);
     coin.rotation.y = wobble * osc * (1 - e);
