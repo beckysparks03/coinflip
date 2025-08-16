@@ -1,43 +1,57 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /* ---------- renderer ---------- */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1; // Brightness adjustment
 document.body.appendChild(renderer.domElement);
 
 /* ---------- scene & camera ---------- */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xffffff);
+scene.background = new THREE.Color(0xffffff);  // white background
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 100);
 camera.position.set(0, 0, 6);
 camera.lookAt(0, 0, 0);
 scene.add(camera);
 
-/* ---------- lighting ---------- */
-scene.add(new THREE.AmbientLight(0xffffff, 1.3));
-scene.add(new THREE.HemisphereLight(0xffffff, 0xeeeeee, 1.0));
+/* ---------- HDR-like studio environment ---------- */
+const pmrem = new THREE.PMREMGenerator(renderer);
+pmrem.compileEquirectangularShader();
+const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-const dir1 = new THREE.DirectionalLight(0xffffff, 1.5);
-dir1.position.set(6, 6, 8);
-scene.add(dir1);
+scene.environment = envTex;  // Apply the HDR environment
+// scene.background = envTex; // Uncomment if you want background as environment
 
-const dir2 = new THREE.DirectionalLight(0xffffff, 1.1);
-dir2.position.set(-6, -6, 8);
-scene.add(dir2);
+/* ---------- lighting setup ---------- */
+scene.add(new THREE.AmbientLight(0xffffff, 1.6)); // strong, soft fill
+scene.add(new THREE.HemisphereLight(0xffffff, 0xdddddd, 1.0)); // sky vs ground
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.0);
+keyLight.position.set(0, 4, 6);
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0xffffff, 1.2);
+fillLight.position.set(-4, -3, 4);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xffffff, 0.9);
+rimLight.position.set(3, 2, -4);
+scene.add(rimLight);
 
 /* ---------- coin group ---------- */
 const coin = new THREE.Group(); // we animate this group
 scene.add(coin);
 
-const baseScale = 1.5; // visible diameter (tweak smaller/bigger)
+const baseScale = 1.2; // visible diameter
 let ready = false;
 
 /* ---------- helpers ---------- */
-
 // 1) Wrap, center, and scale so the coin's diameter = baseScale
 function normalizeModel(root) {
   const wrapper = new THREE.Group();
@@ -85,10 +99,10 @@ function orientFlatXY(wrapper) {
   wrapper.position.sub(center2);
 }
 
-/* ---------- load coin (keeps your materials) ---------- */
+/* ---------- load coin ---------- */
 const loader = new GLTFLoader();
 loader.load(
-  './coin.glb',
+  './coin.glb',   // GLB is in the same folder
   (gltf) => {
     const normalized = normalizeModel(gltf.scene);
     orientFlatXY(normalized);        // ⬅️ ensures coin lies flat (face up/down)
@@ -98,6 +112,14 @@ loader.load(
     // Random side up at rest: 0 = tails, PI = heads (about X)
     const startHeads = Math.random() < 0.5;
     coin.rotation.set(startHeads ? Math.PI : 0, 0, 0);
+
+    // Boost material reflections after load
+    normalized.traverse((o) => {
+      if (o.isMesh && o.material && 'envMapIntensity' in o.material) {
+        o.material.envMapIntensity = 1.25; // increase to make it shinier
+        o.material.needsUpdate = true;
+      }
+    });
 
     ready = true;
   },
@@ -109,7 +131,7 @@ loader.load(
       new THREE.CylinderGeometry(baseScale / 2, baseScale / 2, 0.12, 96),
       new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.9, roughness: 0.3 })
     );
-    // cylinder’s axis is Z by default; faces already in XY
+    placeholder.rotation.set(Math.PI / 2, 0, 0);
     coin.add(placeholder);
 
     const startHeads = Math.random() < 0.5;
@@ -134,7 +156,6 @@ const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2
 function startFlip() {
   if (!ready || flipping) return;
 
-  // start perfectly flat, no sideways lean
   coin.rotation.y = 0;
   coin.rotation.z = 0;
   coin.rotation.x = Math.round(coin.rotation.x / Math.PI) * Math.PI;
@@ -144,8 +165,7 @@ function startFlip() {
   duration = 1.0 + Math.random() * 0.65;
   scaleBoostMax = 0.4 + Math.random() * 0.15;
 
-  // random final side: add 0 or PI half-turn
-  const extra = Math.random() < 0.5 ? 0 : Math.PI;
+  const extra = Math.random() < 0.5 ? 0 : Math.PI; // heads/tails
 
   startX = coin.rotation.x;
   targetX = startX + flips * Math.PI * 2 + extra;
@@ -157,8 +177,6 @@ function startFlip() {
 
 function finishFlip() {
   flipping = false;
-
-  // lock to exact flat (multiple of PI about X)
   coin.rotation.x = Math.round(targetX / Math.PI) * Math.PI;
   coin.rotation.y = 0;
   coin.rotation.z = 0;
@@ -179,19 +197,13 @@ function animate() {
     const e = easeInOutCubic(Math.min(t, 1));
     const done = t >= 1;
 
-    // flip end-over-end (X axis)
     coin.rotation.x = THREE.MathUtils.lerp(startX, targetX, e);
-
-    // rise/fall toward camera
     coin.position.z = Math.sin(Math.PI * e) * height;
 
-    // scale pop to sell “coming out of phone”
     const scaleBoost = 1 + scaleBoostMax * Math.sin(Math.PI * e);
     coin.scale.set(scaleBoost, scaleBoost, scaleBoost);
 
-    // gentle wobble while in air (fades before landing)
-    const wobblePhase = Math.sin(Math.PI * e);   // 0→1→0
-    const wobble = 0.12 * wobblePhase;
+    const wobble = 0.12 * Math.sin(Math.PI * e);
     const osc = Math.sin(e * Math.PI * 14);
     coin.rotation.y = wobble * osc * (1 - e);
     coin.rotation.z = wobble * 0.6 * osc * (1 - e);
@@ -230,5 +242,6 @@ motionBtn?.addEventListener('click', async () => {
     if (motionBtn) { motionBtn.textContent = 'Motion Enabled'; motionBtn.disabled = true; }
   } catch {}
 });
+
 
 
