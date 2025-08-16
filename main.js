@@ -19,7 +19,6 @@ camera.lookAt(0, 0, 0);
 scene.add(camera);
 
 /* ---------- lighting ---------- */
-// Bright, even lighting
 scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 scene.add(new THREE.HemisphereLight(0xffffff, 0xdddddd, 1.0));
 
@@ -50,8 +49,9 @@ loader.load(
     const root = gltf.scene;
     root.scale.set(baseScale, baseScale, baseScale);
 
-    // Force flat orientation: XY plane, tails up
-    root.rotation.set(Math.PI, 0, 0); // rotate around X by 180°
+    // ✅ Lay the coin flat (XY plane), tails up
+    root.rotation.set(-Math.PI / 2, 0, 0);  
+
     root.position.set(0, 0, 0);
 
     // Ensure shiny material if needed
@@ -76,7 +76,7 @@ loader.load(
       new THREE.CylinderGeometry(1.5, 1.5, 0.15, 96),
       new THREE.MeshStandardMaterial({ color: 0xeeeeee, metalness: 0.9, roughness: 0.2 })
     );
-    placeholder.rotation.x = Math.PI;
+    placeholder.rotation.set(-Math.PI / 2, 0, 0); // flat
     coin.add(placeholder);
     ready = true;
   }
@@ -89,8 +89,8 @@ let t = 0;
 let duration = 1.2;
 let totalTurns = 5;
 let height = 1.2;
-let startX = 0;
-let targetX = 0;
+let startRot = 0;
+let targetRot = 0;
 
 const resultEl = document.getElementById('result');
 const easeInOutCubic = (x) =>
@@ -99,15 +99,15 @@ const easeInOutCubic = (x) =>
 function startFlip() {
   if (!ready || flipping || settling) return;
 
-  // Reset orientation flat, no sideways
-  coin.rotation.set(Math.PI, 0, 0);
+  // Reset orientation flat, tails up
+  coin.rotation.set(-Math.PI / 2, 0, 0);
 
-  totalTurns = Math.floor(4 + Math.random() * 4);
+  totalTurns = Math.floor(4 + Math.random() * 4); // 4–7 flips
   height = 1.2 + Math.random() * 0.8;
   duration = 1.0 + Math.random() * 0.6;
 
-  startX = coin.rotation.x;
-  targetX = startX + totalTurns * Math.PI * 2;
+  startRot = coin.rotation.x;
+  targetRot = startRot + totalTurns * Math.PI * 2;
 
   t = 0;
   flipping = true;
@@ -120,7 +120,7 @@ function finishAndReport() {
   coin.position.z = 0;
   coin.scale.set(baseScale, baseScale, baseScale);
 
-  const halfTurns = Math.round((coin.rotation.x - startX) / Math.PI);
+  const halfTurns = Math.round((coin.rotation.x - startRot) / Math.PI);
   const isHeads = halfTurns % 2 !== 0;
   if (resultEl) resultEl.textContent = isHeads ? 'Heads' : 'Tails';
 }
@@ -140,8 +140,8 @@ function animate() {
 
     const e = easeInOutCubic(t);
 
-    // Rotate about X only
-    coin.rotation.x = THREE.MathUtils.lerp(startX, targetX, e);
+    // Rotate coin around X
+    coin.rotation.x = THREE.MathUtils.lerp(startRot, targetRot, e);
 
     // Arc upwards
     coin.position.z = Math.sin(Math.PI * e) * height;
@@ -198,4 +198,5 @@ motionBtn?.addEventListener('click', async () => {
   motionBtn.textContent = 'Motion Enabled';
   motionBtn.disabled = true;
 });
+
 
