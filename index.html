@@ -1,33 +1,57 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>3D Coin Toss (three.js + device shake)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coin Flip</title>
+
+  <!-- Import map so "three" works in browser -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.164.1/build/three.module.js",
+      "three/examples/jsm/": "https://unpkg.com/three@0.164.1/examples/jsm/"
+    }
+  }
+  </script>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #111;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+    }
+    #ui {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      z-index: 10;
+    }
+    button {
+      background: #444;
+      color: #fff;
+      border: none;
+      padding: 0.5rem 1rem;
+      margin-right: 0.5rem;
+      cursor: pointer;
+      border-radius: 0.25rem;
+    }
+    #result {
+      margin-left: 0.5rem;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
   <div id="ui">
-    <div>
-      <button id="motionBtn">Enable Motion</button>
-      <button id="tossBtn">Tap to Toss</button>
-      <div id="hint">Shake the phone to flip the coin. It will settle flat.</div>
-    </div>
+    <button id="motionBtn">Enable Motion</button>
+    <button id="tossBtn">Toss</button>
+    <span id="result"></span>
   </div>
-  <div id="result" hidden>Result</div>
 
-<!-- map bare specifiers to CDN URLs -->
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.164.1/build/three.module.js",
-    "three/examples/jsm/": "https://unpkg.com/three@0.164.1/examples/jsm/"
-  }
-}
-</script>
-
-
-
-  <script type="module" src="./main.js"></script>
+  <!-- load your script -->
+  <script type="module" src="./main.js?v=6"></script>
 </body>
 </html>
