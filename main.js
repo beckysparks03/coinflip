@@ -188,7 +188,7 @@ function finishFlip() {
   coin.scale.set(1, 1, 1);
 
   const isHeads = (Math.round(coin.rotation.x / Math.PI) % 2) !== 0;
-  if (resultEl) resultEl.textContent = isHeads ? 'Heads' : 'Tails';
+  if (resultEl) resultEl.textContent = isHeads ? 'Tails' : 'Heads';
 }
 
 /* ---------- animate ---------- */
