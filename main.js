@@ -18,7 +18,7 @@ camera.lookAt(0, 0, 0);
 scene.add(camera);
 
 /* ---------- lighting ---------- */
-scene.add(new THREE.AmbientLight(0xffffff, 1.35));
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
 scene.add(new THREE.HemisphereLight(0xffffff, 0xeeeeee, 1.0));
 
 const dir1 = new THREE.DirectionalLight(0xffffff, 1.6);
@@ -29,11 +29,11 @@ const dir2 = new THREE.DirectionalLight(0xffffff, 1.2);
 dir2.position.set(-6, -6, 8);
 scene.add(dir2);
 
-/* ---------- coin ---------- */
+/* ---------- coin group ---------- */
 const coin = new THREE.Group();
 scene.add(coin);
 
-const baseScale = 2.7; // desired visible diameter
+const baseScale = 2.7;
 let ready = false;
 
 /* ---------- helpers ---------- */
@@ -50,21 +50,17 @@ function shinyMaterialize(root) {
 }
 
 function normalizeModel(root) {
-  // put into a wrapper so we can offset children cleanly
   const wrapper = new THREE.Group();
   wrapper.add(root);
 
-  // compute bounding box
   const box = new THREE.Box3().setFromObject(wrapper);
   const size = new THREE.Vector3();
   box.getSize(size);
 
-  // recentre
   const center = new THREE.Vector3();
   box.getCenter(center);
   wrapper.position.sub(center);
 
-  // find diameter (largest XY dimension)
   const diameter = Math.max(size.x, size.y);
   const scaleFactor = baseScale / diameter;
   wrapper.scale.setScalar(scaleFactor);
@@ -80,23 +76,29 @@ loader.load(
     shinyMaterialize(gltf.scene);
     const normalized = normalizeModel(gltf.scene);
 
+    // Lay flat: face toward camera
+    normalized.rotation.set(-Math.PI / 2, 0, 0);
+
     coin.add(normalized);
 
-    // random initial side
+    // Random side up on load (Y axis controls heads/tails)
     const startHeads = Math.random() < 0.5;
-    coin.rotation.set(startHeads ? Math.PI : 0, 0, 0);
+    coin.rotation.set(0, startHeads ? Math.PI : 0, 0);
 
     ready = true;
   },
   undefined,
   () => {
+    // fallback placeholder if GLB fails
     const placeholder = new THREE.Mesh(
       new THREE.CylinderGeometry(baseScale / 2, baseScale / 2, 0.15, 96),
       new THREE.MeshStandardMaterial({ color: 0xf2f2f2, metalness: 0.95, roughness: 0.2 })
     );
+    placeholder.rotation.set(-Math.PI / 2, 0, 0);
     coin.add(placeholder);
+
     const startHeads = Math.random() < 0.5;
-    coin.rotation.set(startHeads ? Math.PI : 0, 0, 0);
+    coin.rotation.set(0, startHeads ? Math.PI : 0, 0);
     ready = true;
   }
 );
@@ -108,8 +110,8 @@ let duration = 1.2;
 let flips = 5;
 let height = 1.4;
 let scaleBoostMax = 0.45;
-let startX = 0;
-let targetX = 0;
+let startY = 0;
+let targetY = 0;
 
 const resultEl = document.getElementById('result');
 const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
@@ -117,19 +119,20 @@ const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2
 function startFlip() {
   if (!ready || flipping) return;
 
-  coin.rotation.y = 0;
+  // lock flat start
+  coin.rotation.x = 0;
   coin.rotation.z = 0;
-  coin.rotation.x = Math.round(coin.rotation.x / Math.PI) * Math.PI;
+  coin.rotation.y = Math.round(coin.rotation.y / Math.PI) * Math.PI;
 
-  flips = Math.floor(4 + Math.random() * 4);
+  flips = Math.floor(4 + Math.random() * 4); // 4–7 flips
   height = 1.2 + Math.random() * 0.9;
   duration = 1.0 + Math.random() * 0.65;
   scaleBoostMax = 0.4 + Math.random() * 0.15;
 
-  const extra = Math.random() < 0.5 ? 0 : Math.PI;
+  const extra = Math.random() < 0.5 ? 0 : Math.PI; // heads/tails
 
-  startX = coin.rotation.x;
-  targetX = startX + flips * Math.PI * 2 + extra;
+  startY = coin.rotation.y;
+  targetY = startY + flips * Math.PI * 2 + extra;
 
   t = 0;
   flipping = true;
@@ -138,13 +141,13 @@ function startFlip() {
 
 function finishFlip() {
   flipping = false;
-  coin.rotation.x = Math.round(targetX / Math.PI) * Math.PI;
-  coin.rotation.y = 0;
+  coin.rotation.y = Math.round(targetY / Math.PI) * Math.PI;
+  coin.rotation.x = 0;
   coin.rotation.z = 0;
   coin.position.z = 0;
-  coin.scale.set(1, 1, 1); // normalized already
+  coin.scale.set(1, 1, 1);
 
-  const isHeads = (Math.round(coin.rotation.x / Math.PI) % 2) !== 0;
+  const isHeads = (Math.round(coin.rotation.y / Math.PI) % 2) !== 0;
   if (resultEl) resultEl.textContent = isHeads ? 'Heads' : 'Tails';
 }
 
@@ -158,15 +161,20 @@ function animate() {
     const done = t >= 1;
     const e = easeInOutCubic(Math.min(t, 1));
 
-    coin.rotation.x = THREE.MathUtils.lerp(startX, targetX, e);
+    // spin around Y (somersault flip)
+    coin.rotation.y = THREE.MathUtils.lerp(startY, targetY, e);
+
+    // arc toward camera
     coin.position.z = Math.sin(Math.PI * e) * height;
 
+    // pop scale
     const scaleBoost = 1 + scaleBoostMax * Math.sin(Math.PI * e);
     coin.scale.set(scaleBoost, scaleBoost, scaleBoost);
 
+    // wobble in air only
     const wobble = 0.12 * Math.sin(Math.PI * e);
     const osc = Math.sin(e * Math.PI * 14);
-    coin.rotation.y = wobble * osc * (1 - e);
+    coin.rotation.x = wobble * osc * (1 - e);
     coin.rotation.z = wobble * 0.6 * osc * (1 - e);
 
     if (done) finishFlip();
@@ -202,5 +210,3 @@ motionBtn?.addEventListener('click', async () => {
   motionBtn.textContent = 'Motion Enabled';
   motionBtn.disabled = true;
 });
-
-
