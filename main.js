@@ -149,6 +149,7 @@ let height = 1.4;
 let scaleBoostMax = 0.45;
 let startX = 0;
 let targetX = 0;
+let randomZRotation = 0; // random Z rotation for wobble
 
 const resultEl = document.getElementById('result');
 const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
@@ -169,6 +170,9 @@ function startFlip() {
 
   startX = coin.rotation.x;
   targetX = startX + flips * Math.PI * 2 + extra;
+
+  // Random Z-rotation for more natural wobble during flip
+  randomZRotation = Math.random() * Math.PI * 0.2 - Math.PI * 0.1;  // Small wobble
 
   t = 0;
   flipping = true;
@@ -203,10 +207,14 @@ function animate() {
     const scaleBoost = 1 + scaleBoostMax * Math.sin(Math.PI * e);
     coin.scale.set(scaleBoost, scaleBoost, scaleBoost);
 
-    const wobble = 0.12 * Math.sin(Math.PI * e);
+    // Add random Z-rotation wobble during flip (random spin)
+    coin.rotation.z = randomZRotation * Math.sin(Math.PI * e);
+
+    // wobble in air only (fades before landing)
+    const wobblePhase = Math.sin(Math.PI * e);   // 0→1→0
+    const wobble = 0.12 * wobblePhase;
     const osc = Math.sin(e * Math.PI * 14);
     coin.rotation.y = wobble * osc * (1 - e);
-    coin.rotation.z = wobble * 0.6 * osc * (1 - e);
 
     if (done) finishFlip();
   }
