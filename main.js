@@ -12,27 +12,35 @@ document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xffffff);
 
-// Camera above looking down
+// Camera directly above coin
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 100);
-camera.position.set(0, 0, 6);
+camera.position.set(0, 0, 6); // above
 camera.lookAt(0, 0, 0);
 scene.add(camera);
 
-/* ---------- lights ---------- */
-// Stronger, brighter lighting
-scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-scene.add(new THREE.HemisphereLight(0xffffff, 0xcccccc, 0.6));
+/* ---------- lighting ---------- */
+// Bright, even lighting
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+scene.add(new THREE.HemisphereLight(0xffffff, 0xdddddd, 1.0));
 
-const dir = new THREE.DirectionalLight(0xffffff, 1.2);
-dir.position.set(3, 5, 6);
-scene.add(dir);
+const dir1 = new THREE.DirectionalLight(0xffffff, 1.2);
+dir1.position.set(5, 5, 6);
+scene.add(dir1);
 
-/* ---------- coin group ---------- */
+const dir2 = new THREE.DirectionalLight(0xffffff, 1.0);
+dir2.position.set(-5, -5, 6);
+scene.add(dir2);
+
+const point = new THREE.PointLight(0xffffff, 0.6, 20);
+point.position.set(0, 0, 8);
+scene.add(point);
+
+/* ---------- coin ---------- */
 const coin = new THREE.Group();
 scene.add(coin);
 
 let ready = false;
-let baseScale = 2.5; // normal resting scale
+let baseScale = 2.5;
 
 /* ---------- load coin ---------- */
 const loader = new GLTFLoader();
@@ -41,16 +49,19 @@ loader.load(
   (gltf) => {
     const root = gltf.scene;
     root.scale.set(baseScale, baseScale, baseScale);
-    root.rotation.x = Math.PI; // tails up
+
+    // Force flat orientation: XY plane, tails up
+    root.rotation.set(Math.PI, 0, 0); // rotate around X by 180°
     root.position.set(0, 0, 0);
 
+    // Ensure shiny material if needed
     root.traverse((o) => {
       if (o.isMesh) {
         if (!o.material || !o.material.isMeshStandardMaterial) {
-          o.material = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.9, roughness: 0.25 });
+          o.material = new THREE.MeshStandardMaterial({ color: 0xeeeeee, metalness: 0.9, roughness: 0.2 });
         } else {
           o.material.metalness = 0.9;
-          o.material.roughness = 0.25;
+          o.material.roughness = 0.2;
         }
       }
     });
@@ -63,7 +74,7 @@ loader.load(
     // fallback placeholder
     const placeholder = new THREE.Mesh(
       new THREE.CylinderGeometry(1.5, 1.5, 0.15, 96),
-      new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.25 })
+      new THREE.MeshStandardMaterial({ color: 0xeeeeee, metalness: 0.9, roughness: 0.2 })
     );
     placeholder.rotation.x = Math.PI;
     coin.add(placeholder);
@@ -71,7 +82,7 @@ loader.load(
   }
 );
 
-/* ---------- flip params ---------- */
+/* ---------- flip physics ---------- */
 let flipping = false;
 let settling = false;
 let t = 0;
@@ -82,18 +93,16 @@ let startX = 0;
 let targetX = 0;
 
 const resultEl = document.getElementById('result');
-
 const easeInOutCubic = (x) =>
   x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 
 function startFlip() {
   if (!ready || flipping || settling) return;
 
-  coin.rotation.y = 0;
-  coin.rotation.z = 0;
-  coin.rotation.x = Math.round(coin.rotation.x / Math.PI) * Math.PI;
+  // Reset orientation flat, no sideways
+  coin.rotation.set(Math.PI, 0, 0);
 
-  totalTurns = Math.floor(4 + Math.random() * 4); // 4–7 flips
+  totalTurns = Math.floor(4 + Math.random() * 4);
   height = 1.2 + Math.random() * 0.8;
   duration = 1.0 + Math.random() * 0.6;
 
@@ -131,14 +140,14 @@ function animate() {
 
     const e = easeInOutCubic(t);
 
-    // Rotate coin
+    // Rotate about X only
     coin.rotation.x = THREE.MathUtils.lerp(startX, targetX, e);
 
-    // Arc up/down
+    // Arc upwards
     coin.position.z = Math.sin(Math.PI * e) * height;
 
-    // Scale up and back down (illusion of popping out)
-    const scaleBoost = 1 + 0.4 * Math.sin(Math.PI * e); // up to +40% bigger
+    // Scale boost for illusion
+    const scaleBoost = 1 + 0.4 * Math.sin(Math.PI * e);
     coin.scale.set(baseScale * scaleBoost, baseScale * scaleBoost, baseScale * scaleBoost);
   } else if (settling) {
     const snapX = Math.round(coin.rotation.x / Math.PI) * Math.PI;
@@ -189,5 +198,4 @@ motionBtn?.addEventListener('click', async () => {
   motionBtn.textContent = 'Motion Enabled';
   motionBtn.disabled = true;
 });
-
 
