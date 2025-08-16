@@ -76,8 +76,14 @@ loader.load(
     shinyMaterialize(gltf.scene);
     const normalized = normalizeModel(gltf.scene);
 
-    // Lay flat so face is visible (rotate onto XY plane)
+    // Lay flat so face is visible
     normalized.rotation.set(Math.PI / 2, 0, 0);
+
+    // 🔑 Recenter again after rotation
+    const box = new THREE.Box3().setFromObject(normalized);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    normalized.position.sub(center);
 
     coin.add(normalized);
 
@@ -89,11 +95,18 @@ loader.load(
   },
   undefined,
   () => {
+    // fallback placeholder if GLB fails
     const placeholder = new THREE.Mesh(
       new THREE.CylinderGeometry(baseScale / 2, baseScale / 2, 0.15, 96),
       new THREE.MeshStandardMaterial({ color: 0xf2f2f2, metalness: 0.95, roughness: 0.2 })
     );
     placeholder.rotation.set(Math.PI / 2, 0, 0);
+
+    const box = new THREE.Box3().setFromObject(placeholder);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    placeholder.position.sub(center);
+
     coin.add(placeholder);
 
     const startHeads = Math.random() < 0.5;
@@ -209,3 +222,4 @@ motionBtn?.addEventListener('click', async () => {
   motionBtn.textContent = 'Motion Enabled';
   motionBtn.disabled = true;
 });
+
