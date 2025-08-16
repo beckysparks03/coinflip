@@ -76,29 +76,28 @@ loader.load(
     shinyMaterialize(gltf.scene);
     const normalized = normalizeModel(gltf.scene);
 
-    // Lay flat: face toward camera
-    normalized.rotation.set(-Math.PI / 2, 0, 0);
+    // Lay flat so face is visible (rotate onto XY plane)
+    normalized.rotation.set(Math.PI / 2, 0, 0);
 
     coin.add(normalized);
 
-    // Random side up on load (Y axis controls heads/tails)
+    // Random side up (X axis controls heads/tails)
     const startHeads = Math.random() < 0.5;
-    coin.rotation.set(0, startHeads ? Math.PI : 0, 0);
+    coin.rotation.set(startHeads ? Math.PI : 0, 0, 0);
 
     ready = true;
   },
   undefined,
   () => {
-    // fallback placeholder if GLB fails
     const placeholder = new THREE.Mesh(
       new THREE.CylinderGeometry(baseScale / 2, baseScale / 2, 0.15, 96),
       new THREE.MeshStandardMaterial({ color: 0xf2f2f2, metalness: 0.95, roughness: 0.2 })
     );
-    placeholder.rotation.set(-Math.PI / 2, 0, 0);
+    placeholder.rotation.set(Math.PI / 2, 0, 0);
     coin.add(placeholder);
 
     const startHeads = Math.random() < 0.5;
-    coin.rotation.set(0, startHeads ? Math.PI : 0, 0);
+    coin.rotation.set(startHeads ? Math.PI : 0, 0, 0);
     ready = true;
   }
 );
@@ -110,8 +109,8 @@ let duration = 1.2;
 let flips = 5;
 let height = 1.4;
 let scaleBoostMax = 0.45;
-let startY = 0;
-let targetY = 0;
+let startX = 0;
+let targetX = 0;
 
 const resultEl = document.getElementById('result');
 const easeInOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
@@ -120,9 +119,9 @@ function startFlip() {
   if (!ready || flipping) return;
 
   // lock flat start
-  coin.rotation.x = 0;
+  coin.rotation.y = 0;
   coin.rotation.z = 0;
-  coin.rotation.y = Math.round(coin.rotation.y / Math.PI) * Math.PI;
+  coin.rotation.x = Math.round(coin.rotation.x / Math.PI) * Math.PI;
 
   flips = Math.floor(4 + Math.random() * 4); // 4–7 flips
   height = 1.2 + Math.random() * 0.9;
@@ -131,8 +130,8 @@ function startFlip() {
 
   const extra = Math.random() < 0.5 ? 0 : Math.PI; // heads/tails
 
-  startY = coin.rotation.y;
-  targetY = startY + flips * Math.PI * 2 + extra;
+  startX = coin.rotation.x;
+  targetX = startX + flips * Math.PI * 2 + extra;
 
   t = 0;
   flipping = true;
@@ -141,13 +140,13 @@ function startFlip() {
 
 function finishFlip() {
   flipping = false;
-  coin.rotation.y = Math.round(targetY / Math.PI) * Math.PI;
-  coin.rotation.x = 0;
+  coin.rotation.x = Math.round(targetX / Math.PI) * Math.PI;
+  coin.rotation.y = 0;
   coin.rotation.z = 0;
   coin.position.z = 0;
   coin.scale.set(1, 1, 1);
 
-  const isHeads = (Math.round(coin.rotation.y / Math.PI) % 2) !== 0;
+  const isHeads = (Math.round(coin.rotation.x / Math.PI) % 2) !== 0;
   if (resultEl) resultEl.textContent = isHeads ? 'Heads' : 'Tails';
 }
 
@@ -161,8 +160,8 @@ function animate() {
     const done = t >= 1;
     const e = easeInOutCubic(Math.min(t, 1));
 
-    // spin around Y (somersault flip)
-    coin.rotation.y = THREE.MathUtils.lerp(startY, targetY, e);
+    // flip end over end (X axis)
+    coin.rotation.x = THREE.MathUtils.lerp(startX, targetX, e);
 
     // arc toward camera
     coin.position.z = Math.sin(Math.PI * e) * height;
@@ -174,7 +173,7 @@ function animate() {
     // wobble in air only
     const wobble = 0.12 * Math.sin(Math.PI * e);
     const osc = Math.sin(e * Math.PI * 14);
-    coin.rotation.x = wobble * osc * (1 - e);
+    coin.rotation.y = wobble * osc * (1 - e);
     coin.rotation.z = wobble * 0.6 * osc * (1 - e);
 
     if (done) finishFlip();
